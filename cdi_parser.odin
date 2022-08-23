@@ -167,19 +167,19 @@ parse_dreamcast_cdi_data :: proc(data: []byte) -> DreamcastDisc {
             TrackMode.Mode2, data_session.tracks[0].mode)
     }
 
-    {
-        using parse_state
-        session_header := read_value(CDISession, header_cursor, data)
-        header_cursor += size_of(CDISession)
-        track_part1 := read_value(CDITrackPart1, header_cursor, data)
-        header_cursor += size_of(CDITrackPart1) + auto_cast track_part1.filename_length
-        track_header := read_value(CDITrackHeader, header_cursor, data)
-        header_cursor += size_of(track_header)
-        disc_info := read_value(CDIDiscInfo, header_cursor, data)
-        header_cursor += size_of(CDIDiscInfo)
-        print("disc info: %v", disc_info)
+    // {
+    //     using parse_state
+    //     session_header := read_value(CDISession, header_cursor, data)
+    //     header_cursor += size_of(CDISession)
+    //     track_part1 := read_value(CDITrackPart1, header_cursor, data)
+    //     header_cursor += size_of(CDITrackPart1) + auto_cast track_part1.filename_length
+    //     track_header := read_value(CDITrackHeader, header_cursor, data)
+    //     header_cursor += size_of(track_header)
+    //     disc_info := read_value(CDIDiscInfo, header_cursor, data)
+    //     header_cursor += size_of(CDIDiscInfo)
+    //     print("disc info: %v", disc_info)
 
-    }
+    // }
 
     //Convert Mode 2 source image to XA Mode2 Form 1 data
     {

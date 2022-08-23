@@ -121,6 +121,7 @@ foreign CoreFoundation {
         bufferSize: CFIndex, encoding: CFStringEncoding) -> CharBoolean ---
     CFStringGetLength :: proc "c" (theString: CFStringRef) -> CFIndex ---
     CFStringGetMaximumSizeForEncoding :: proc "c" (length: CFIndex, encoding: CFStringEncoding) -> CFIndex ---
+    CFCopyDescription :: proc "c" (cf: CFTypeRef) -> CFStringRef ---
     NSLog :: proc "c" (format: ^NS.String, #c_vararg  args: ..any) ---
 }
 

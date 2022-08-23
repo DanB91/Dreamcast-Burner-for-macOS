@@ -13,13 +13,13 @@ run_app() {
     $APP_FOLDER/$EXE_NAME $@
 }
 case "$1" in
-*)
-    shift
-    build_app
-    ;;
 "run")
     shift
     build_app
     run_app $@
+    ;;
+*)
+    shift
+    build_app
     ;;
 esac

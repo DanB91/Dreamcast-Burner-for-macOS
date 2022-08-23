@@ -9,11 +9,13 @@ This project will attempt to be a solution to burn Dreamcast CDI image files to 
 
 Please note, you MUST run the `dreamcast_burner` executable from a `*.app` folder, otherwise the program will not be able to detect your CD burner.  I have no idea why this is.
 
+Instead of running the exectuable directly, you run Dreamcast Burner with `./build.sh run`.
+
 ## Requirements
 - macOS.  Tested on macOS Monterey, but I'm sure it will work on earlier version.
-- [Odin](https://odin-lang.org) compiler. 
-- Xcode 
-- CD Burner
+- [Odin](https://odin-lang.org) compiler.
+- Xcode.
+- CD Burner.
 - Dreamcast to play the games!
 
 ## Compile

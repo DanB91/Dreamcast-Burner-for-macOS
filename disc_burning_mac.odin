@@ -44,8 +44,6 @@ init_burner :: proc() -> DRBurnRef {
 }
 burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
     scoped_temp_memory()
-    burner := init_burner() 
-    defer CFRelease(burner)
 
     //TODO: add CFRunLoop code
     // notification_center := DRNotificationCenterCreate()
@@ -72,8 +70,7 @@ burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
         for track, i in session.tracks {
             pregap_length, track_length := sector_count_of_track(track)
             drtrack_slice[i] = create_audio_drtrack(pregap_length, 
-                track_length, 
-                track.start_lba)
+                track_length)
             burning_thread_context.track_map[drtrack_slice[i]] = track
         }
         audio_session_layout = cfarray(drtrack_slice)
@@ -87,8 +84,7 @@ burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
         for track, i in session.tracks {
             pregap_length, track_length := sector_count_of_track(track)
             drtrack_slice[i] = create_data_drtrack(pregap_length, 
-                track_length, 
-                track.start_lba)
+                track_length)
             burning_thread_context.track_map[drtrack_slice[i]] = track
         }
         data_session_layout = cfarray(drtrack_slice)
@@ -102,6 +98,8 @@ burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
         disc_layout = cfarray(sessions[:])
     }
 
+    burner := init_burner() 
+    defer CFRelease(burner)
     burn_result := DRBurnWriteLayout(burner, disc_layout)
     if burn_result != 0 {
         burn_session_error("Failed to start burning. Error code: 0x%X", burn_result)
@@ -114,12 +112,12 @@ burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
 
         status_state := cast(CFStringRef)CFDictionaryGetValue(status, kDRStatusStateKey)
         if CFStringCompare(status_state, kDRStatusStateFailed, 0) == 0 {
-            NSLog(NS.AT("Burn failed status: %@"), status)
+            print("Burn failed status: %v", status)
             print("Burn failed!")
             break
         }
         if CFStringCompare(status_state, kDRStatusStateDone, 0) == 0 {
-            NSLog(NS.AT("Burn success status: %@"), status)
+            print("Burn success status: %v", status)
             print("Burn done!")
             break
         }
@@ -127,11 +125,9 @@ burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
         if true {
             time.sleep(100 * time.Millisecond)
         } else {
-            NSLog(NS.AT("Burn status: %@"), status)
+            print("Burn status: %v", status)
             time.sleep(10 * time.Second)
-
         }
-
     }
 }
 
@@ -144,17 +140,14 @@ burn_dreamcast_disc :: proc(disc: DreamcastDisc) {
 
 // }
 
-create_audio_drtrack :: proc (pregap_length, track_length, start_lba: int) -> DRTrackRef {
+create_audio_drtrack :: proc (pregap_length, track_length: int) -> DRTrackRef {
     cfnum_track_length := cfnum(track_length)
     defer CFRelease(cfnum_track_length)
     cfnum_pregap_length := cfnum(pregap_length)
     defer CFRelease(cfnum_pregap_length)
-    cfnum_start_lba := cfnum(start_lba)
-    defer CFRelease(cfnum_start_lba)
     properties := cfdictionary(
         kDRTrackLengthKey, cfnum_track_length,
         kDRPreGapLengthKey, cfnum_pregap_length,
-        kDRTrackStartAddressKey, cfnum_start_lba,
         kDRBlockSizeKey, kDRBlockSizeAudio,
         kDRBlockTypeKey, kDRBlockTypeAudio,
         kDRDataFormKey, kDRDataFormAudio,
@@ -163,6 +156,7 @@ create_audio_drtrack :: proc (pregap_length, track_length, start_lba: int) -> DR
         kDRPreGapIsRequiredKey, kCFBooleanTrue,
     )
     defer CFRelease(properties)
+    print("Audio track properties: %v", properties)
     return DRTrackCreate(properties, burn_callback)
 }
 MODE2_BLOCK_SIZE := cfnum(2336)
@@ -170,17 +164,14 @@ MODE2_BLOCK_TYPE := cfnum(9)
 MODE2_DATA_FORM := cfnum(0x30)
 MODE2_SESSION_FORMAT := cfnum(0) //or is it cfnum(0x10) for CD-I??
 MODE2_TRACK_MODE := cfnum(4)
-create_data_drtrack :: proc (pregap_length, track_length, start_lba: int) -> DRTrackRef {
+create_data_drtrack :: proc (pregap_length, track_length: int) -> DRTrackRef {
     cfnum_track_length := cfnum(track_length)
     defer CFRelease(cfnum_track_length)
     cfnum_pregap_length := cfnum(pregap_length)
     defer CFRelease(cfnum_pregap_length)
-    cfnum_start_lba := cfnum(start_lba)
-    defer CFRelease(cfnum_start_lba)
     properties := cfdictionary(
         kDRTrackLengthKey, cfnum_track_length,
         kDRPreGapLengthKey, cfnum_pregap_length,
-        kDRTrackStartAddressKey, cfnum_start_lba,
         kDRBlockSizeKey, kDRBlockSizeMode2Form1Data,
         kDRBlockTypeKey, kDRBlockTypeMode2Form1Data,
         kDRDataFormKey, kDRDataFormMode2Form1Data,
@@ -199,6 +190,7 @@ create_data_drtrack :: proc (pregap_length, track_length, start_lba: int) -> DRT
     //     kDRTrackModeKey, MODE2_TRACK_MODE,
     // )
     defer CFRelease(properties)
+    print("Data track properties: %v", properties)
     return DRTrackCreate(properties, burn_callback)
 }
 
@@ -350,7 +342,7 @@ test_disc_eject :: proc() {
     }
 
     {
-        track := create_audio_drtrack(2345, 123456, 43)
-        NSLog(NS.AT("DRTrack: %@"), DRTrackGetProperties(track))
+        track := create_audio_drtrack(2345, 123456)
+        print("DRTrack: %v", DRTrackGetProperties(track))
     }
 }

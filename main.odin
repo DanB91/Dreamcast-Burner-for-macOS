@@ -77,11 +77,31 @@ register_custom_type_formatters :: proc() {
             return err == .None
         }
         return false
-    } 
+    }
+    cfobject_formatter :: proc(fi: ^fmt.Info, arg: any, verb: rune) -> bool {
+        cfobj: CFTypeRef
+        switch obj in arg {
+            case CFArrayRef: cfobj = auto_cast obj
+            case CFDictionaryRef: cfobj = auto_cast obj
+            case CFNumberRef: cfobj = auto_cast obj
+            case CFBooleanRef: cfobj = auto_cast obj
+        }
+        cfstr :=  CFCopyDescription(cfobj)
+        defer CFRelease(cfstr)
+        return cfstring_formatter(fi, cfstr, verb)
+    }
     @(static)user_formatters: map[typeid]fmt.User_Formatter
     fmt.set_user_formatters(&user_formatters)
 
     err := fmt.register_user_formatter(CFStringRef, cfstring_formatter) 
+    assert(err == .None)
+    err = fmt.register_user_formatter(CFDictionaryRef, cfobject_formatter) 
+    assert(err == .None)
+    err = fmt.register_user_formatter(CFArrayRef, cfobject_formatter) 
+    assert(err == .None)
+    err = fmt.register_user_formatter(CFNumberRef, cfobject_formatter) 
+    assert(err == .None)
+    err = fmt.register_user_formatter(CFBooleanRef, cfobject_formatter) 
     assert(err == .None)
     
 }
