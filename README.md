@@ -1,4 +1,4 @@
-# Dreamcast Burn for macOS
+# Dreamcast Burner for macOS
 
 This project will attempt to be a solution to burn Dreamcast CDI image files to CD on modern macOS, since currently no solution exists.  This program is functional but only works with smaller games as of now.  Please note, this only works on Dreamcast CDI images, and not any generic CDI images.
 
