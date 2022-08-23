@@ -1,0 +1,6 @@
+*.cdi
+.vscode
+.DS_Store
+*.dSYM
+*.app
+*.iso
