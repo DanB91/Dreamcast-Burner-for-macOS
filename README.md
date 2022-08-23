@@ -27,3 +27,6 @@ Please note, you MUST run the `dreamcast_burner` executable from a `*.app` folde
 
 ### Not Working
 - Sonic Adventure 2
+
+## Credits
+Big thanks to kazade's [mkdcdisc](https://gitlab.com/simulant/mkdcdisc/-/tree/main) for helping me write the CDI parsing code!
