@@ -39,17 +39,21 @@ msf_of_track :: proc (track: Track) -> (pregap: MSF, actual: MSF) {
     msf :: proc(number_of_bytes: int, mode: TrackMode) -> MSF {
         sector_size := sector_size_for_mode(mode)
         number_of_sectors := number_of_bytes/sector_size
-        
-        frames := number_of_sectors % 75
-        total_seconds := number_of_sectors / 75
-        seconds := total_seconds % 60
-        minutes := total_seconds / 60
 
-        return {minutes, seconds, frames}
+        return sectors_to_msf(number_of_sectors)
+        
     }
 
     return msf(track.number_of_pregap_bytes, track.mode), 
         msf(len(track.sectors), track.mode) 
+}
+sectors_to_msf :: proc(number_of_sectors: int) -> MSF {
+    frames := number_of_sectors % 75
+    total_seconds := number_of_sectors / 75
+    seconds := total_seconds % 60
+    minutes := total_seconds / 60
+
+    return {minutes, seconds, frames}
 }
 sector_of_track :: proc(sector: int, track: Track,) -> []byte {
     sector_size := sector_size_for_mode(track.mode)

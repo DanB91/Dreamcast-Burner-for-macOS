@@ -4,6 +4,10 @@ import "core:io"
 import "core:mem"
 import "core:os"
 
+ProgramState :: struct {
+    is_verbose: bool,
+}
+
 main :: proc() {
     register_custom_type_formatters()
     if len(os.args) != 2 && len(os.args) != 3 {
@@ -21,6 +25,11 @@ main :: proc() {
     mem.arena_init(&burn_session_arena, make([]byte, 4 * mem.Gigabyte))
     context.allocator = mem.arena_allocator(&burn_session_arena)
 
+    program_state := ProgramState {
+        is_verbose = false,
+    }
+    context.user_ptr = &program_state
+
     dreamcast_disc := parse_dreamcast_cdi_data(data)
     if !should_print_track_listing {
         burn_dreamcast_disc(dreamcast_disc)
@@ -32,28 +41,88 @@ main :: proc() {
 }
 
 print_track_listing :: proc(disc: DreamcastDisc) {
-    print_track :: proc(session: DiscSession) {
-        for track in session.tracks {
+    end_lba := 0
+    total_disc_sectors := 0
+    LBA_OFFSET :: 150
+    {
+        print("Audio Session:")
+        total_sector_count := 0
+        total_byte_count := 0
+        for track, i in disc.audio_session.tracks {
             pregap_count, sector_count := sector_count_of_track(track)
-            pregap_msf, actual_msf := msf_of_track(track)
-            print("\tTrack %v:", track.number)
-            print("\t\tLBA start %v:", track.start_lba)
-            print("\t\tPregap %v:%v.%v, %v bytes, %v sectors", 
-                pregap_msf.minutes, pregap_msf.seconds, pregap_msf.frames,
-                track.number_of_pregap_bytes, pregap_count)
-            print("\t\tActual %v:%v.%v, %v bytes, %v sectors",
-                actual_msf.minutes, actual_msf.seconds, actual_msf.frames,
-                len(track.sectors), sector_count)
+            //Pregap starts before the actual track, pregap LBA is negative for the first track
+            start_pregap_lba := track.start_lba - pregap_count
+            pregap_start_msf := sectors_to_msf(start_pregap_lba+pregap_count)
+            pregap_end_msf := sectors_to_msf(start_pregap_lba+pregap_count+pregap_count)
+
+            end_lba = track.start_lba+sector_count
+            actual_start_msf := sectors_to_msf(track.start_lba+LBA_OFFSET)
+            actual_end_msf := sectors_to_msf(end_lba+LBA_OFFSET)
+
+            print("\tTrack %v, Mode: %v", i+1, track.mode)
+            print("\t\tPregap: %v:%v.%v - %v:%v.%v, %v sectors, %v bytes, LBA: %v",
+                pregap_start_msf.minutes, pregap_start_msf.seconds, pregap_start_msf.frames,
+                pregap_end_msf.minutes, pregap_end_msf.seconds, pregap_end_msf.frames,
+                pregap_count, track.number_of_pregap_bytes, start_pregap_lba) 
+            print("\t\tActual: %v:%v.%v - %v:%v.%v, %v sectors, %v bytes, LBA: %v",
+                actual_start_msf.minutes, actual_start_msf.seconds, actual_start_msf.frames,
+                actual_end_msf.minutes, actual_end_msf.seconds, actual_end_msf.frames,
+                sector_count, len(track.sectors), track.start_lba) 
+            total_sector_count += pregap_count + sector_count
+            total_byte_count += track.number_of_pregap_bytes + len(track.sectors)
         }
+        msf := sectors_to_msf(total_sector_count)
+        print("\tTotal %v:%v.%v, %v sectors, %v bytes, end LBA: %v",
+            msf.minutes, msf.seconds, msf.frames, total_sector_count, 
+            total_byte_count, end_lba)
     }
-    print("Audio Session:")
-    print_track(disc.audio_session)
-    print("Data Session:")
-    print_track(disc.data_session)
+    {
+        print("Data Session:")
+        total_sector_count := 0
+        total_byte_count := 0
+        for track, i in disc.data_session.tracks {
+            pregap_count, sector_count := sector_count_of_track(track)
+            //Pregap starts before the actual track, pregap LBA is negative for the first track
+            start_pregap_lba := track.start_lba - pregap_count
+            pregap_start_msf := sectors_to_msf(start_pregap_lba+pregap_count)
+            pregap_end_msf := sectors_to_msf(start_pregap_lba+pregap_count+pregap_count)
+
+            end_lba = track.start_lba+sector_count
+            actual_start_msf := sectors_to_msf(track.start_lba+LBA_OFFSET)
+            actual_end_msf := sectors_to_msf(end_lba + LBA_OFFSET)
+
+            print("\tTrack %v, Mode: %v", i+1, track.mode)
+            print("\t\tPregap: %v:%v.%v - %v:%v.%v, %v sectors, %v bytes, LBA: %v",
+                pregap_start_msf.minutes, pregap_start_msf.seconds, pregap_start_msf.frames,
+                pregap_end_msf.minutes, pregap_end_msf.seconds, pregap_end_msf.frames,
+                pregap_count, track.number_of_pregap_bytes, start_pregap_lba) 
+            print("\t\tActual: %v:%v.%v - %v:%v.%v, %v sectors, %v bytes, LBA: %v",
+                actual_start_msf.minutes, actual_start_msf.seconds, actual_start_msf.frames,
+                actual_end_msf.minutes, actual_end_msf.seconds, actual_end_msf.frames,
+                sector_count, len(track.sectors), track.start_lba) 
+            total_sector_count += pregap_count + sector_count
+            total_byte_count += track.number_of_pregap_bytes + len(track.sectors)
+        }
+        msf := sectors_to_msf(total_sector_count)
+        print("\tTotal %v:%v.%v, %v sectors, %v bytes, end LBA: %v",
+            msf.minutes, msf.seconds, msf.frames, total_sector_count, 
+            total_byte_count, end_lba)
+    }
+    msf := sectors_to_msf(end_lba+LBA_OFFSET)
+    print("Disc End %v:%v.%v, LBA: %v",
+        msf.minutes, msf.seconds, msf.frames, end_lba)
 }
 
 //utilities
 print :: proc(format: string, args: ..any) {
+    fmt.printf(format, ..args)
+    fmt.println()
+}
+print_verbose :: proc(format: string, args: ..any) {
+    program_state := cast(^ProgramState)context.user_ptr
+    if !program_state.is_verbose {
+        return
+    }
     fmt.printf(format, ..args)
     fmt.println()
 }

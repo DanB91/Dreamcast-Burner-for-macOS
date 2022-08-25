@@ -126,29 +126,11 @@ parse_dreamcast_cdi_data :: proc(data: []byte) -> DreamcastDisc {
     parse_state.header_cursor += 1;
 
     audio_session := parse_session(&parse_state)
-    // {
-    // scoped_temp_memory()
-    //     track := &audio_session.tracks[0]
-    //     track_data := make([]byte, len(track.pregap_sectors) + len(track.sectors))
-    //     n := copy(track_data, track.pregap_sectors)
-    //     copy(track_data[n:], track.sectors)
-
-    //     //os.write_entire_file("track 1.aiff", track_data)
-    //     os.write_entire_file("track 1.aiff", track.sectors)
-    // }
-
-
-    //SEGA SEGAKATANA magic bytes
-    // SEGA_MAGIC := [15]byte{0x53,0x45,0x47,0x41,0x20,0x53,0x45,0x47,0x41,0x4B,0x41,0x54,0x41,0x4E,0x41}
-    EXPECTED_PREGAP_BYTES :: 150*2336
-    // for i := parse_state.data_cursor; i < len(data); i += 1 {
-    //     data_slice := data[i:i+len(SEGA_MAGIC)]
-    //     assert(len(data_slice) == len(SEGA_MAGIC));
-    //     if mem.compare(data_slice, SEGA_MAGIC[:]) == 0 {
-    //         parse_state.data_cursor = i - EXPECTED_PREGAP_BYTES
-    //         break
-    //     }
-    // }
+    for track, i in audio_session.tracks {
+        if track.mode == .Mode2 {
+            audio_session.tracks[i] = convert_mode2_xamode2f1(track)
+        }
+    }
 
     data_session := parse_session(&parse_state)
     if len(data_session.tracks) != 1 {
@@ -157,7 +139,7 @@ parse_dreamcast_cdi_data :: proc(data: []byte) -> DreamcastDisc {
     }
 
     data_track := &data_session.tracks[0]
-
+    EXPECTED_PREGAP_BYTES :: 150*2336
     if data_track.number_of_pregap_bytes != EXPECTED_PREGAP_BYTES {
         burn_session_error("Unexpected number of pregap sectors in data session. Should be %v but was %v", 
             EXPECTED_PREGAP_BYTES, data_session.tracks[0].number_of_pregap_bytes)
@@ -167,41 +149,16 @@ parse_dreamcast_cdi_data :: proc(data: []byte) -> DreamcastDisc {
             TrackMode.Mode2, data_session.tracks[0].mode)
     }
 
-    // {
-    //     using parse_state
-    //     session_header := read_value(CDISession, header_cursor, data)
-    //     header_cursor += size_of(CDISession)
-    //     track_part1 := read_value(CDITrackPart1, header_cursor, data)
-    //     header_cursor += size_of(CDITrackPart1) + auto_cast track_part1.filename_length
-    //     track_header := read_value(CDITrackHeader, header_cursor, data)
-    //     header_cursor += size_of(track_header)
-    //     disc_info := read_value(CDIDiscInfo, header_cursor, data)
-    //     header_cursor += size_of(CDIDiscInfo)
-    //     print("disc info: %v", disc_info)
-
-    // }
-
-    //Convert Mode 2 source image to XA Mode2 Form 1 data
-    {
-        mode2_block_size := sector_size_for_mode(data_track.mode)
-        mode2f1_block_size := sector_size_for_mode(.XAMode2Form1)
-        _, sector_count := sector_count_of_track(data_track^)
-        src_data := data_track.sectors
-        dst_data := make([]byte, sector_count * mode2f1_block_size)
-        mem.zero_slice(dst_data)
-        src_cursor, dst_cursor: int
-        for src_cursor < len(src_data)  {
-            d := dst_data[dst_cursor:dst_cursor+mode2f1_block_size]
-            s := src_data[src_cursor+8:src_cursor+8+mode2f1_block_size]
-            copy(d, s)
-            dst_cursor += mode2f1_block_size
-            src_cursor += mode2_block_size
-        }
-        data_track.sectors = dst_data
-        data_track.mode = .XAMode2Form1
-        data_track.number_of_pregap_bytes = 
-            data_track.number_of_pregap_bytes/mode2_block_size * mode2f1_block_size
+    //SEGA SEGAKATANA magic bytes
+    SEGA_MAGIC := [15]byte{0x53,0x45,0x47,0x41,0x20,0x53,0x45,0x47,0x41,0x4B,0x41,0x54,0x41,0x4E,0x41}
+    if mem.compare(data_track.sectors[8:8+len(SEGA_MAGIC)], SEGA_MAGIC[:]) != 0 {
+        burn_session_error("Data track of disc does not have expected signature!")
     }
+    data_session.tracks[0] = convert_mode2_xamode2f1(data_session.tracks[0])
+
+    //print_disc_info(prase_state)
+    
+
     return DreamcastDisc{
         audio_session = audio_session,
         data_session = data_session
@@ -239,7 +196,7 @@ parse_track :: proc(parse_state: ^ParseState, session: ^DiscSession, track_numbe
 
     parse_state.header_cursor += cdi_filename_length
     track_part2 := read_value(CDITrackPart2, parse_state.header_cursor, parse_state.data)
-    assert(track_part2.max_cd_length == 360000)
+    //assert(track_part2.max_cd_length == 360000)
     assert(track_part2.unknown3 == 0x80000000)
     assert(track_part2.unknown4 == 0x980000)
 
@@ -279,6 +236,7 @@ parse_track :: proc(parse_state: ^ParseState, session: ^DiscSession, track_numbe
         start_lba = auto_cast track_part2.start_lba,
     }
     parse_state.data_cursor += num_pregap + len(track.sectors)
+    assert(len(track.sectors)/sector_size == auto_cast track_part2.sector_count)
 
     return track
 }
@@ -288,4 +246,40 @@ read_value :: proc($T: typeid, position: int, bytes: []byte) -> T {
         burn_session_error("Position out of bounts of data")
     }
     return (cast(^T)raw_data(bytes[position:]))^
+}
+convert_mode2_xamode2f1 :: proc(track: Track) -> Track {
+    mode2_block_size := sector_size_for_mode(track.mode)
+    mode2f1_block_size := sector_size_for_mode(.XAMode2Form1)
+    _, sector_count := sector_count_of_track(track)
+    src_data := track.sectors
+    dst_data := make([]byte, sector_count * mode2f1_block_size)
+    mem.zero_slice(dst_data)
+    src_cursor, dst_cursor: int
+    for src_cursor < len(src_data)  {
+        d := dst_data[dst_cursor:dst_cursor+mode2f1_block_size]
+        s := src_data[src_cursor+8:src_cursor+8+mode2f1_block_size]
+        copy(d, s)
+        dst_cursor += mode2f1_block_size
+        src_cursor += mode2_block_size
+    }
+    return Track {
+        number_of_pregap_bytes = track.number_of_pregap_bytes/mode2_block_size * mode2f1_block_size,
+        sectors = dst_data,
+        session = track.session,
+        mode = .XAMode2Form1,
+        number = track.number,
+        start_lba = track.start_lba,
+    }
+}
+print_disc_info :: proc(parse_state: ^ParseState) {
+    using parse_state
+    session_header := read_value(CDISession, header_cursor, data)
+    header_cursor += size_of(CDISession)
+    track_part1 := read_value(CDITrackPart1, header_cursor, data)
+    header_cursor += size_of(CDITrackPart1) + auto_cast track_part1.filename_length
+    track_header := read_value(CDITrackHeader, header_cursor, data)
+    header_cursor += size_of(track_header)
+    disc_info := read_value(CDIDiscInfo, header_cursor, data)
+    header_cursor += size_of(CDIDiscInfo)
+    print("disc info: %v", disc_info)
 }

@@ -22,6 +22,12 @@ CFStringRef :: distinct rawptr
 
 CFBooleanRef :: distinct rawptr
 
+CFRunLoopRef :: distinct rawptr
+
+CFRunLoopSourceRef :: distinct rawptr
+
+CFRunLoopMode :: distinct CFStringRef
+
 CFDictionaryKeyCallBacks :: struct {
     version: CFIndex,
     retain: rawptr,
@@ -123,6 +129,15 @@ foreign CoreFoundation {
     CFStringGetMaximumSizeForEncoding :: proc "c" (length: CFIndex, encoding: CFStringEncoding) -> CFIndex ---
     CFCopyDescription :: proc "c" (cf: CFTypeRef) -> CFStringRef ---
     NSLog :: proc "c" (format: ^NS.String, #c_vararg  args: ..any) ---
+
+    //CFRunLoop
+    kCFRunLoopCommonModes: CFRunLoopMode 
+    CFRunLoopGetCurrent :: proc "c" () -> CFRunLoopRef ---
+    CFRunLoopAddSource :: proc "c" (r1: CFRunLoopRef, source: CFRunLoopSourceRef, mode: CFRunLoopMode) ---
+    CFRunLoopRun :: proc "c" () ---
+    CFRunLoopSourceInvalidate :: proc "c" (source: CFRunLoopSourceRef) ---
+    CFRunLoopStop :: proc "c" (r1: CFRunLoopRef) ---
+
 }
 
 DRBurnRef :: distinct rawptr
@@ -347,6 +362,66 @@ foreign DiscRecording {
                 will choose an alternate pregap length. 
     */
     kDRPreGapIsRequiredKey: CFStringRef
+    /*!
+        @const		kDRBurnStrategyKey
+        @abstract	One or more suggested burn strategies.
+        @discussion	This burn property key corresponds to a CFString object, or to a CFArray object containing
+                    CFString objects, indicating the suggested burn strategy or strategies.  
+                    If this key is not present, the burn engine picks an appropriate burn 
+                    strategy automatically--so most clients do not need to specify a burn strategy.
+                    
+                    When more than one strategy is suggested, the burn engine attempts to
+                    use the first strategy in the list which is available.  A burn strategy
+                    will never be used if it cannot write the required data. For example, the 
+                    track-at-once (TAO) strategy cannot write CD-Text.
+                    
+                    This presence of this key alone is just a suggestion--if the burn
+                    engine cannot fulfill the request it will burn using whatever
+                    strategy is available.  To convert the suggestion into a requirement, add the
+                    @link kDRBurnStrategyIsRequiredKey kDRBurnStrategyIsRequiredKey @/link key with a value of <tt>true</tt>.
+                    
+                    Before using this key you should ensure that the device
+                    supports the strategy or strategies requested. Do this by checking the
+                    burn strategy keys in the device's write capabilities dictionary.
+    */
+    kDRBurnStrategyKey: CFStringRef
+    /*!
+        @const		kDRBurnStrategyIsRequiredKey
+        @abstract	Flag indicating whether to attempt to enforce the specified burn strategies.
+        @discussion	This burn property key corresponds to a CFBoolean object indicating whether the burn
+                    strategy or strategies listed for the @link kDRBurnStrategyKey kDRBurnStrategyKey @/link key are
+                    the only ones allowed.  If this key is not present, the burn will 
+                    behave as though the key were <tt>false</tt>.
+                    
+                    If this key's value is set to <tt>true</tt> and the device does
+                    not support any of the suggested burn strategies, the burn
+                    will fail with a return value of @link //apple_ref/c/econst/kDRDeviceBurnStrategyNotAvailableErr kDRDeviceBurnStrategyNotAvailableErr @/link.
+                    
+                    If this key's value is set to <tt>false</tt> and the device does
+                    not support any of the suggested burn strategies, the engine
+                    will choose an alternate burn strategy. The burn strategy
+                    used will provide an equivalent disc.
+    */
+    kDRBurnStrategyIsRequiredKey: CFStringRef
+    /*!
+        @const		kDRBurnStrategyCDSAO
+        @abstract	A CFString object representing the session-at-once (SAO) burn strategy for CD.
+    */
+    kDRBurnStrategyCDSAO: CFStringRef
+
+    /*!
+        @const kDRStatusPercentCompleteKey
+        @abstract	The burn or erase operation's percentage of completion.
+        @discussion	A key for the status dictionaries. The value of this key is 
+                    a CFNumber object containing the precentage of completion for the burn 
+                    or erase operation, expressed as a foating point number from 0 to 1.
+    */
+    kDRStatusPercentCompleteKey: CFStringRef
+
+    kDRErrorStatusKey: CFStringRef
+    kDRErrorStatusErrorStringKey: CFStringRef
+    kDRErrorStatusAdditionalSenseStringKey: CFStringRef
+    kDRErrorStatusErrorKey: CFStringRef
 
     kDRBurnStatusChangedNotification: CFStringRef
     kDRTrackNumberKey: CFStringRef
@@ -382,4 +457,5 @@ foreign DiscRecording {
 
     DRBurnCopyStatus :: proc "c" (burn: DRBurnRef) -> CFDictionaryRef ---
     DRBurnGetProperties :: proc "c" (burn: DRBurnRef) -> CFDictionaryRef ---
+    DRNotificationCenterCreateRunLoopSource :: proc "c" (center: DRNotificationCenterRef) -> CFRunLoopSourceRef ---
 }
