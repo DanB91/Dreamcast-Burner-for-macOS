@@ -86,7 +86,7 @@ burn_handle_notification :: proc "c" (center: DRNotificationCenterRef,
         CFRunLoopStop(CFRunLoopGetCurrent())
     }
     if CFStringCompare(status_state, kDRStatusStateDone, 0) == 0 {
-        fmt.printf("Progress: %.2f%%\r", 100)
+        fmt.printf("Progress: %.2f%%\r", 100.0)
         print("\nBurn success!")
         CFRunLoopStop(CFRunLoopGetCurrent())
     }
