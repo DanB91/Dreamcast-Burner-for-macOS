@@ -29,6 +29,10 @@ Instead of running the exectuable directly, you run Dreamcast Burner with `./bui
 
 ### Not Working
 - Sonic Adventure 2
+- Jet Grind Radio
+- Crazy Taxi
+- Street Fighter 3
+- Marvel vs Capcom 2
 
 ## Credits
 Big thanks to kazade's [mkdcdisc](https://gitlab.com/simulant/mkdcdisc/-/tree/main) for helping me write the CDI parsing code!
