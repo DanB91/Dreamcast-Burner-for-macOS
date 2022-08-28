@@ -139,22 +139,28 @@ parse_dreamcast_cdi_data :: proc(data: []byte) -> DreamcastDisc {
     }
 
     data_track := &data_session.tracks[0]
-    EXPECTED_PREGAP_BYTES :: 150*2336
-    if data_track.number_of_pregap_bytes != EXPECTED_PREGAP_BYTES {
-        burn_session_error("Unexpected number of pregap sectors in data session. Should be %v but was %v", 
-            EXPECTED_PREGAP_BYTES, data_session.tracks[0].number_of_pregap_bytes)
-    }
     if data_track.mode != .Mode2 {
         burn_session_error("Unexpected mode in data session. Should be %v but was %v", 
             TrackMode.Mode2, data_session.tracks[0].mode)
     }
 
+    data_session.tracks[0] = convert_mode2_xamode2f1(data_session.tracks[0])
+
+    EXPECTED_PREGAP_BYTES :: 150*2048
+    if data_track.number_of_pregap_bytes != EXPECTED_PREGAP_BYTES {
+        burn_session_error("Unexpected number of pregap sectors in data session. Should be %v but was %v", 
+            EXPECTED_PREGAP_BYTES, data_session.tracks[0].number_of_pregap_bytes)
+    }
+    if data_track.mode != .XAMode2Form1 {
+        burn_session_error("Unexpected mode in data session. Should be %v but was %v", 
+            TrackMode.XAMode2Form1, data_session.tracks[0].mode)
+    }
+
     //SEGA SEGAKATANA magic bytes
     SEGA_MAGIC := [15]byte{0x53,0x45,0x47,0x41,0x20,0x53,0x45,0x47,0x41,0x4B,0x41,0x54,0x41,0x4E,0x41}
-    if mem.compare(data_track.sectors[8:8+len(SEGA_MAGIC)], SEGA_MAGIC[:]) != 0 {
+    if mem.compare(data_track.sectors[:len(SEGA_MAGIC)], SEGA_MAGIC[:]) != 0 {
         burn_session_error("Data track of disc does not have expected signature!")
     }
-    data_session.tracks[0] = convert_mode2_xamode2f1(data_session.tracks[0])
 
     //print_disc_info(prase_state)
     
@@ -223,7 +229,12 @@ parse_track :: proc(parse_state: ^ParseState, session: ^DiscSession, track_numbe
     pregap_sector_byte_start := parse_state.data_cursor
     pregap_sector_byte_end := pregap_sector_byte_start+cast(int)track_part2.pregap_sector_count*sector_size
     sector_byte_start := pregap_sector_byte_end
-    sector_byte_end := pregap_sector_byte_end+cast(int)track_part2.sector_count*sector_size
+
+    //this minus 2 is from https://github.com/alex-free/dreamcast-cdi-burner/blob/master/cdirip-0.6.3/cdirip.c#L320
+    //no idea why this is
+    CUT_AMOUNT :: 0
+    sector_count := cast(int)track_part2.sector_count - CUT_AMOUNT
+    sector_byte_end := pregap_sector_byte_end+sector_count*sector_size
 
     num_pregap := pregap_sector_byte_end-pregap_sector_byte_start
 
@@ -235,8 +246,8 @@ parse_track :: proc(parse_state: ^ParseState, session: ^DiscSession, track_numbe
         number = track_number,
         start_lba = auto_cast track_part2.start_lba,
     }
-    parse_state.data_cursor += num_pregap + len(track.sectors)
-    assert(len(track.sectors)/sector_size == auto_cast track_part2.sector_count)
+    parse_state.data_cursor += num_pregap + len(track.sectors)+CUT_AMOUNT*sector_size
+    assert(len(track.sectors)/sector_size == auto_cast track_part2.sector_count - CUT_AMOUNT)
 
     return track
 }
@@ -251,7 +262,8 @@ convert_mode2_xamode2f1 :: proc(track: Track) -> Track {
     mode2_block_size := sector_size_for_mode(track.mode)
     mode2f1_block_size := sector_size_for_mode(.XAMode2Form1)
     _, sector_count := sector_count_of_track(track)
-    src_data := track.sectors
+
+    src_data := track.sectors[:sector_count*mode2_block_size]
     dst_data := make([]byte, sector_count * mode2f1_block_size)
     mem.zero_slice(dst_data)
     src_cursor, dst_cursor: int

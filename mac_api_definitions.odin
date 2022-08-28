@@ -423,6 +423,8 @@ foreign DiscRecording {
     kDRErrorStatusAdditionalSenseStringKey: CFStringRef
     kDRErrorStatusErrorKey: CFStringRef
 
+    kDRBurnTestingKey: CFStringRef
+
     kDRBurnStatusChangedNotification: CFStringRef
     kDRTrackNumberKey: CFStringRef
     kDRBurnRequestedSpeedKey: CFStringRef 

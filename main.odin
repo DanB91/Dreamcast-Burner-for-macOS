@@ -36,7 +36,8 @@ main :: proc() {
     } else {
         // test_disc_eject()
         print_track_listing(dreamcast_disc)
-        os.write_entire_file("iso_test.iso", dreamcast_disc.data_session.tracks[0].sectors)
+        os.write_entire_file("iso1.iso", dreamcast_disc.audio_session.tracks[0].sectors)
+        os.write_entire_file("iso2.iso", dreamcast_disc.data_session.tracks[0].sectors)
     }
 }
 

@@ -30,18 +30,19 @@ init_burner :: proc() -> DRBurnRef {
     burner := DRBurnCreate(device)
 
     //lowest speed
-    CD_1X :: 150
-    burner_speed := cfnum(CD_1X)
+    CD_8X :: 150*8
+    burner_speed := cfnum(CD_8X)
     defer CFRelease(burner_speed)
 
     burner_properties := cfdictionary(
         kDRBurnRequestedSpeedKey, burner_speed,
-        kDRBurnStrategyKey, kDRBurnStrategyCDSAO,
-        kDRBurnStrategyIsRequiredKey, kCFBooleanTrue,
+        //kDRBurnTestingKey, kCFBooleanTrue,
+        //kDRBurnStrategyKey, kDRBurnStrategyCDSAO,
+        //kDRBurnStrategyIsRequiredKey, kCFBooleanTrue,
     )
     defer CFRelease(burner_properties)
 
-    DRBurnSetProperties(burner, burner_properties)
+    //DRBurnSetProperties(burner, burner_properties)
 
     return burner
 }
